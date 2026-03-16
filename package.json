@@ -1,0 +1,13 @@
+{
+  "name": "gemini-supermemory",
+  "version": "1.0.0",
+  "description": "Persistent memory for Gemini CLI using Supermemory",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "supermemory": "^1.0.0"
+  }
+}
