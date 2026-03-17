@@ -6,7 +6,6 @@ const shared = {
   target: "node18",
   format: "esm",
   minify: true,
-  banner: { js: "#!/usr/bin/env node" },
 };
 
 await Promise.all([
