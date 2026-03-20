@@ -17,7 +17,7 @@ Your agent remembers what you worked on — across sessions, across projects.
 ## Installation
 
 ```bash
-gemini extensions install Rishabjs03/gemini-supermemory
+gemini extensions install https://github.com/Rishabjs03/gemini-supermemory
 ```
 
 Set your API key when prompted (get one at [app.supermemory.ai](https://app.supermemory.ai)).
