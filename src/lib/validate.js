@@ -31,23 +31,6 @@ export function ValidateContentLength(content, min = 1 ,maxLength = DEFAULT_MAX_
    return {valid: true, reason: null}
 }
 
-// ValidateApiKey checks if the API key is a non-empty string that starts with "sm_" and does not contain whitespace
-export function ValidateApiKey(apiKey) {
-    if (!apiKey || typeof apiKey !== "string") {
-    return { valid: false, reason: "API key is missing or not a string" };
-  }
-  if (!apiKey.startsWith("sm_")) {
-    return { valid: false, reason: "API key must start with 'sm_' prefix" };
-  }
-  if (apiKey.length < 20) {
-    return { valid: false, reason: "API key is too short to be valid" };
-  }
-  if (/\s/.test(apiKey)) {
-    return { valid: false, reason: "API key must not contain whitespace" };
-  }
-  return { valid: true };
-}
-
 // validateContainerTag checks if the container tag is a non-empty string that is 100 characters or fewer, contains only letters, numbers, hyphens and underscores, and does not start or end with a hyphen or underscore
 export function validateContainerTag(tag) {
   if (!tag || typeof tag !== "string") {

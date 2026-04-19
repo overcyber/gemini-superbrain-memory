@@ -1,15 +1,13 @@
-import { ValidateApiKey, validateContainerTag } from "./validate.js";
+import { validateContainerTag } from "./validate.js";
 import { getProjectMemoryConfig } from "./project-config.js";
 
 export const DEFAULT_CONTAINER_TAG = "gemini_default";
-export const DEFAULT_SUPERMEMORY_API_URL =
-  process.env.SUPERMEMORY_API_URL ?? "https://api.supermemory.ai";
 export const DEFAULT_SUPERBRAIN_API_URL =
   process.env.SUPERBRAIN_API_URL ?? "http://localhost:8082/api/v1";
 export const DEFAULT_SEARCH_LIMIT = 10;
 export const DEFAULT_SEARCH_MODE = "hybrid";
 
-const SUPPORTED_PROVIDERS = new Set(["supermemory", "superbrain"]);
+const SUPPORTED_PROVIDERS = new Set(["superbrain"]);
 
 function readOptionalString(value) {
   if (typeof value !== "string") {
@@ -18,16 +16,6 @@ function readOptionalString(value) {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
-}
-
-function validateRequiredSupermemoryApiKey(apiKey) {
-  const keyCheck = ValidateApiKey(apiKey);
-
-  if (!keyCheck.valid) {
-    throw new Error(`Invalid Supermemory API key: ${keyCheck.reason}`);
-  }
-
-  return apiKey;
 }
 
 function validateRequiredBackendToken(label, token) {
@@ -61,26 +49,18 @@ function resolveProvider(explicitProvider, projectConfig, env) {
   if (requested) {
     if (!SUPPORTED_PROVIDERS.has(requested)) {
       throw new Error(
-        `Unsupported memory provider "${requested}". Supported providers: supermemory, superbrain`,
+        `Unsupported memory provider "${requested}". Supported providers: superbrain`,
       );
     }
 
     return requested;
   }
 
-  const hasSuperbrainUrlHint =
-    Boolean(projectConfig.apiUrl) &&
-    /\/api\/v1|localhost:8082|127\.0\.0\.1:8082/i.test(projectConfig.apiUrl);
-  const hasSuperbrainHint =
-    hasSuperbrainUrlHint ||
-    Boolean(readOptionalString(env.SUPERBRAIN_API_URL)) ||
-    Boolean(readOptionalString(env.SUPERBRAIN_API_KEY));
-
-  return hasSuperbrainHint ? "superbrain" : "supermemory";
+  return "superbrain";
 }
 
 export function loadConfig(env = process.env, cwd = process.cwd(), explicitProvider) {
-  const projectConfig = getProjectMemoryConfig(cwd);
+  const projectConfig = getProjectMemoryConfig(cwd, env);
   const provider = resolveProvider(explicitProvider, projectConfig, env);
   const containerTag = validateDefaultContainerTag(
     readOptionalString(env.SUPERMEMORY_CONTAINER_TAG) ?? DEFAULT_CONTAINER_TAG,
@@ -88,35 +68,17 @@ export function loadConfig(env = process.env, cwd = process.cwd(), explicitProvi
   const searchLimit = DEFAULT_SEARCH_LIMIT;
   const searchMode = DEFAULT_SEARCH_MODE;
 
-  if (provider === "superbrain") {
-    const apiKey = validateRequiredBackendToken(
-      "SuperBrain API key",
-      projectConfig.apiKey ??
-        readOptionalString(env.SUPERBRAIN_API_KEY) ??
-        readOptionalString(env.SUPERMEMORY_API_KEY),
-    );
-    const apiUrl =
-      projectConfig.apiUrl ??
-      readOptionalString(env.SUPERBRAIN_API_URL) ??
-      DEFAULT_SUPERBRAIN_API_URL;
-
-    return {
-      provider,
-      apiKey,
-      apiUrl,
-      containerTag,
-      searchLimit,
-      searchMode,
-    };
-  }
-
-  const apiKey = validateRequiredSupermemoryApiKey(
-    projectConfig.apiKey ?? readOptionalString(env.SUPERMEMORY_API_KEY),
+  const apiKey = validateRequiredBackendToken(
+    "SuperBrain API key",
+    projectConfig.apiKey ??
+      readOptionalString(env.SUPERBRAIN_API_KEY) ??
+      readOptionalString(env.SUPERMEMORY_API_KEY),
   );
   const apiUrl =
     projectConfig.apiUrl ??
+    readOptionalString(env.SUPERBRAIN_API_URL) ??
     readOptionalString(env.SUPERMEMORY_API_URL) ??
-    DEFAULT_SUPERMEMORY_API_URL;
+    DEFAULT_SUPERBRAIN_API_URL;
 
   return {
     provider,
