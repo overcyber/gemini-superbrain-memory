@@ -1,5 +1,7 @@
 # Gemini-SuperBrain-Memory
 
+![Gemini-SuperBrain-Memory Logo](readme_logo.png)
+
 A [Gemini CLI](https://github.com/google-gemini/gemini-cli) extension that gives your AI **persistent memory across sessions** using **SuperBrain/OpenMemory**, with legacy `supermemory` support still available.
 Your agent remembers what you worked on across sessions and across projects.
 
