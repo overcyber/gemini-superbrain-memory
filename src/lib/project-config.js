@@ -57,16 +57,24 @@ function findConfigPath(cwd = process.cwd(), env = process.env) {
   const allowLocalProjectConfig = shouldAllowLocalProjectConfig(env);
   const allowTrackedProjectConfig = shouldTrustTrackedProjectConfig(env);
 
-  for (const candidatePath of getConfigCandidates(
-    basePath,
-    allowLocalProjectConfig,
-    allowTrackedProjectConfig,
-  )) {
-    if (!fs.existsSync(candidatePath)) {
-      continue;
-    }
+  // Lista de diretórios para procurar: CWD atual e diretório da extensão
+  const searchPaths = [basePath];
+  const extensionPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../");
+  if (extensionPath !== basePath) {
+    searchPaths.push(extensionPath);
+  }
 
-    return candidatePath;
+  for (const searchPath of searchPaths) {
+    for (const candidatePath of getConfigCandidates(
+      searchPath,
+      allowLocalProjectConfig,
+      allowTrackedProjectConfig,
+    )) {
+      if (!fs.existsSync(candidatePath)) {
+        continue;
+      }
+      return candidatePath;
+    }
   }
 
   return null;
