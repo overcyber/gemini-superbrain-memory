@@ -24,7 +24,7 @@ function isTruthy(value) {
 }
 
 function shouldAllowLocalProjectConfig(env = process.env) {
-  return isTruthy(env.GEMINI_SUPERMEMORY_ALLOW_LOCAL_PROJECT_CONFIG);
+  return true; // Sempre permitir arquivos de configuração locais (.local.json)
 }
 
 function shouldTrustTrackedProjectConfig(env = process.env) {
