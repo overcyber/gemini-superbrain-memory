@@ -4,6 +4,7 @@ import { getProjectBasePath } from "./container-tag.js";
 import { SanitizeContent, ValidateContentLength } from "./validate.js";
 
 const GEMINI_SKILL_NAMESPACE = "gemini-cli:skill:gemini-superbrain-memory";
+const PROJECT_FINGERPRINT_LENGTH = 16;
 
 function dedupeBy(items, getKey) {
   const seen = new Set();
@@ -59,6 +60,14 @@ function toStableUuid(input) {
     hex.slice(16, 20).join(""),
     hex.slice(20, 32).join(""),
   ].join("-");
+}
+
+function toProjectFingerprint(input) {
+  return crypto
+    .createHash("sha256")
+    .update(String(input))
+    .digest("hex")
+    .slice(0, PROJECT_FINGERPRINT_LENGTH);
 }
 
 function normalizeSearchResult(result) {
@@ -138,6 +147,7 @@ export class SuperbrainClient {
     this.containerTag = containerTag ?? config.containerTag;
     this.cwd = cwd;
     this.basePath = getProjectBasePath(cwd);
+    this.projectFingerprint = toProjectFingerprint(this.basePath);
   }
 
   getScopeTag(containerTag) {
@@ -158,7 +168,7 @@ export class SuperbrainClient {
     return {
       scopeTag,
       userId,
-      basePath: this.basePath,
+      projectFingerprint: this.projectFingerprint,
       namespace: GEMINI_SKILL_NAMESPACE,
     };
   }
@@ -215,7 +225,7 @@ export class SuperbrainClient {
         containerTag: scope.scopeTag,
         superbrainUserId: scope.userId,
         namespace: scope.namespace,
-        basePath: scope.basePath,
+        projectFingerprint: scope.projectFingerprint,
         customId: customId ?? null,
         entityContext: entityContext ?? null,
         metadata,

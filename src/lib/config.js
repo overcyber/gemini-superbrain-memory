@@ -20,11 +20,7 @@ function readOptionalString(value) {
 
 function validateRequiredBackendToken(label, token) {
   if (!token || typeof token !== "string") {
-    throw new Error(`${label} is missing or not a string`);
-  }
-
-  if (!token.trim()) {
-    throw new Error(`${label} must not be empty`);
+    return ""; // Retorna vazio em vez de lançar erro
   }
 
   return token.trim();

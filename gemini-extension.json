@@ -5,7 +5,7 @@
     "settings": [
         {
             "name": "Memory Backend API Key",
-            "description": "API key for the configured memory backend (SuperBrain or Supermemory)",
+            "description": "API key for the local SuperBrain/OpenMemory backend (kept in legacy env SUPERMEMORY_API_KEY for compatibility)",
             "envVar": "SUPERMEMORY_API_KEY",
             "sensitive": true
         }

@@ -1,7 +1,14 @@
 /**
- * Per-project configuration, loaded from .gemini/.supermemory/config.json
- * Allows project-specific backend/provider settings, API keys and scope
- * overrides without changing the global Gemini extension install.
+ * Per-project configuration with a hardened trust model.
+ * By default, project-local config files are NOT auto-loaded.
+ * Local per-project config is only enabled when the user explicitly opts in.
+ *
+ * When enabled, the preferred files are:
+ * - .gemini/.supermemory/config.local.json
+ * - .supermemory/config.local.json
+ *
+ * Legacy repo-shared config.json files are ignored unless the user
+ * explicitly opts in via GEMINI_SUPERMEMORY_TRUST_PROJECT_CONFIG=true.
  */
 
 import fs from "node:fs";
@@ -9,30 +16,64 @@ import path from "node:path";
 import { getGitRoot } from "./git-utils.js";
 
 const CONFIG_DIR_NAME = ".supermemory";
-const CONFIG_FILE_NAME = "config.json";
+const LOCAL_CONFIG_FILE_NAME = "config.local.json";
+const LEGACY_CONFIG_FILE_NAME = "config.json";
 
-function findConfigPath(cwd = process.cwd()) {
+function isTruthy(value) {
+  return ["1", "true", "yes", "on"].includes(String(value ?? "").trim().toLowerCase());
+}
+
+function shouldAllowLocalProjectConfig(env = process.env) {
+  return isTruthy(env.GEMINI_SUPERMEMORY_ALLOW_LOCAL_PROJECT_CONFIG);
+}
+
+function shouldTrustTrackedProjectConfig(env = process.env) {
+  return isTruthy(env.GEMINI_SUPERMEMORY_TRUST_PROJECT_CONFIG);
+}
+
+function getConfigCandidates(basePath, allowLocalProjectConfig, allowTrackedProjectConfig) {
+  const candidates = [];
+
+  if (allowLocalProjectConfig) {
+    candidates.push(
+      path.join(basePath, ".gemini", CONFIG_DIR_NAME, LOCAL_CONFIG_FILE_NAME),
+      path.join(basePath, CONFIG_DIR_NAME, LOCAL_CONFIG_FILE_NAME),
+    );
+  }
+
+  if (allowTrackedProjectConfig) {
+    candidates.push(
+      path.join(basePath, ".gemini", CONFIG_DIR_NAME, LEGACY_CONFIG_FILE_NAME),
+      path.join(basePath, CONFIG_DIR_NAME, LEGACY_CONFIG_FILE_NAME),
+    );
+  }
+
+  return candidates;
+}
+
+function findConfigPath(cwd = process.cwd(), env = process.env) {
   const gitRoot = getGitRoot(cwd);
   const basePath = gitRoot || cwd;
+  const allowLocalProjectConfig = shouldAllowLocalProjectConfig(env);
+  const allowTrackedProjectConfig = shouldTrustTrackedProjectConfig(env);
 
-  // Check .gemini/.supermemory/config.json first
-  const geminiPath = path.join(
+  for (const candidatePath of getConfigCandidates(
     basePath,
-    ".gemini",
-    CONFIG_DIR_NAME,
-    CONFIG_FILE_NAME
-  );
-  if (fs.existsSync(geminiPath)) return geminiPath;
+    allowLocalProjectConfig,
+    allowTrackedProjectConfig,
+  )) {
+    if (!fs.existsSync(candidatePath)) {
+      continue;
+    }
 
-  // Fallback: .supermemory/config.json in project root
-  const rootPath = path.join(basePath, CONFIG_DIR_NAME, CONFIG_FILE_NAME);
-  if (fs.existsSync(rootPath)) return rootPath;
+    return candidatePath;
+  }
 
   return null;
 }
 
-export function loadProjectConfig(cwd = process.cwd()) {
-  const configPath = findConfigPath(cwd);
+export function loadProjectConfig(cwd = process.cwd(), env = process.env) {
+  const configPath = findConfigPath(cwd, env);
   if (!configPath) return null;
 
   try {
@@ -49,8 +90,8 @@ function readOptionalString(value) {
   return trimmed || null;
 }
 
-export function getProjectMemoryConfig(cwd = process.cwd()) {
-  const config = loadProjectConfig(cwd);
+export function getProjectMemoryConfig(cwd = process.cwd(), env = process.env) {
+  const config = loadProjectConfig(cwd, env);
 
   return {
     provider: readOptionalString(config?.provider),
@@ -61,12 +102,12 @@ export function getProjectMemoryConfig(cwd = process.cwd()) {
   };
 }
 
-export function getProjectApiKey(cwd = process.cwd()) {
-  return getProjectMemoryConfig(cwd).apiKey;
+export function getProjectApiKey(cwd = process.cwd(), env = process.env) {
+  return getProjectMemoryConfig(cwd, env).apiKey;
 }
 
-export function getProjectContainerOverrides(cwd = process.cwd()) {
-  const config = getProjectMemoryConfig(cwd);
+export function getProjectContainerOverrides(cwd = process.cwd(), env = process.env) {
+  const config = getProjectMemoryConfig(cwd, env);
   return {
     personalContainerTag: config.personalContainerTag,
     repoContainerTag: config.repoContainerTag,

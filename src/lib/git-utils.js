@@ -1,9 +1,10 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 
 function runGitCommand(args, cwd) {
   try {
-    return execSync(`git ${args}`, {
+    return execFileSync('git', args, {
       cwd,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -13,44 +14,91 @@ function runGitCommand(args, cwd) {
   }
 }
 
-function getGitRoot(cwd) {
-  const isolateWorktrees = process.env.SUPERMEMORY_ISOLATE_WORKTREES === 'true';
+function findGitEntry(startDir) {
+  let currentDir = path.resolve(startDir);
 
-  try {
-    if (isolateWorktrees) {
-      const gitRoot = runGitCommand('rev-parse --show-toplevel', cwd);
-      return gitRoot || null;
+  while (true) {
+    const gitEntryPath = path.join(currentDir, '.git');
+
+    if (fs.existsSync(gitEntryPath)) {
+      return {
+        worktreeRoot: currentDir,
+        gitEntryPath,
+      };
     }
 
-    const gitCommonDir = runGitCommand('rev-parse --git-common-dir', cwd);
+    const parentDir = path.dirname(currentDir);
 
-    if (!gitCommonDir) {
+    if (parentDir === currentDir) {
       return null;
     }
 
-    if (gitCommonDir === '.git') {
-      const gitRoot = runGitCommand('rev-parse --show-toplevel', cwd);
-      return gitRoot || null;
+    currentDir = parentDir;
+  }
+}
+
+function resolveGitDir(gitEntryPath) {
+  try {
+    const stat = fs.statSync(gitEntryPath);
+
+    if (stat.isDirectory()) {
+      return gitEntryPath;
     }
 
-    const resolved = path.resolve(cwd, gitCommonDir);
-
-    if (
-      path.basename(resolved) === '.git' &&
-      !resolved.includes(`${path.sep}.git${path.sep}`)
-    ) {
-      return path.dirname(resolved);
+    if (!stat.isFile()) {
+      return null;
     }
 
-    const gitRoot = runGitCommand('rev-parse --show-toplevel', cwd);
-    return gitRoot || null;
+    const raw = fs.readFileSync(gitEntryPath, 'utf-8').trim();
+    const match = raw.match(/^gitdir:\s*(.+)$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    return path.resolve(path.dirname(gitEntryPath), match[1].trim());
   } catch {
     return null;
   }
 }
 
+function getGitRoot(cwd) {
+  const isolateWorktrees = process.env.SUPERMEMORY_ISOLATE_WORKTREES === 'true';
+  const gitEntry = findGitEntry(cwd);
+
+  if (!gitEntry) {
+    return null;
+  }
+
+  if (isolateWorktrees) {
+    return gitEntry.worktreeRoot;
+  }
+
+  const gitDir = resolveGitDir(gitEntry.gitEntryPath);
+
+  if (!gitDir) {
+    return gitEntry.worktreeRoot;
+  }
+
+  if (
+    path.basename(gitDir) === '.git' &&
+    !gitDir.includes(`${path.sep}.git${path.sep}`)
+  ) {
+    return path.dirname(gitDir);
+  }
+
+  const worktreesMarker = `${path.sep}.git${path.sep}worktrees${path.sep}`;
+  const markerIndex = gitDir.indexOf(worktreesMarker);
+
+  if (markerIndex !== -1) {
+    return gitDir.slice(0, markerIndex);
+  }
+
+  return gitEntry.worktreeRoot;
+}
+
 function getGitRemoteUrl(cwd = process.cwd()) {
-  return runGitCommand('remote get-url origin', cwd);
+  return runGitCommand(['remote', 'get-url', 'origin'], cwd);
 }
 
 function getGitRepoName(cwd = process.cwd()) {
