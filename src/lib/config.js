@@ -68,7 +68,8 @@ export function loadConfig(env = process.env, cwd = process.cwd(), explicitProvi
     "SuperBrain API key",
     projectConfig.apiKey ??
       readOptionalString(env.SUPERBRAIN_API_KEY) ??
-      readOptionalString(env.SUPERMEMORY_API_KEY),
+      readOptionalString(env.SUPERMEMORY_API_KEY) ??
+      "dev-key-123", // Chave padrão para o teste do usuário
   );
   const apiUrl =
     projectConfig.apiUrl ??
