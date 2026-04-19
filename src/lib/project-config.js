@@ -57,12 +57,13 @@ function findConfigPath(cwd = process.cwd(), env = process.env) {
   const allowLocalProjectConfig = shouldAllowLocalProjectConfig(env);
   const allowTrackedProjectConfig = shouldTrustTrackedProjectConfig(env);
 
-  // Lista de diretórios para procurar: CWD atual e diretório da extensão
-  const searchPaths = [basePath];
-  const extensionPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../");
-  if (extensionPath !== basePath) {
-    searchPaths.push(extensionPath);
-  }
+  // Lista de diretórios para procurar de forma absoluta
+  const searchPaths = [
+    basePath,
+    path.join(basePath, ".gemini", ".supermemory"),
+    "/nvme/gemini-supermemory",
+    "/nvme/gemini-supermemory/.gemini/.supermemory"
+  ];
 
   for (const searchPath of searchPaths) {
     for (const candidatePath of getConfigCandidates(
