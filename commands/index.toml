@@ -1,7 +1,7 @@
-description = "Index this codebase's architecture and patterns into Supermemory"
+description = "Index this codebase's architecture and patterns into the configured memory backend"
 
 prompt = """
-Explore this codebase deeply and save your findings to Supermemory using the `save_project_memory` tool.
+Explore this codebase deeply and save your findings to the configured memory backend using the `save_project_memory` tool.
 
 ## What to Analyze
 

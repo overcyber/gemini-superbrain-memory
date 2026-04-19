@@ -27,6 +27,11 @@ function formatRelativeTime(isoTimestamp) {
   }
 }
 
+function getSectorLabel(result) {
+  const sector = result?.sector ?? result?.metadata?.sector;
+  return sector ? `(${sector}) ` : "";
+}
+
 export function formatProfileContext(profileResult, maxItems = 5) {
   if (!profileResult) return null;
 
@@ -57,7 +62,8 @@ export function formatProfileContext(profileResult, maxItems = 5) {
       const pct =
         r.similarity != null ? `[${Math.round(r.similarity * 100)}%]` : "";
       const prefix = timeStr ? `[${timeStr}] ` : "";
-      return `- ${prefix}${text} ${pct}`.trim();
+      const sectorPrefix = getSectorLabel(r);
+      return `- ${prefix}${sectorPrefix}${text} ${pct}`.trim();
     });
     sections.push(`**Relevant Memories**\n${lines.join("\n")}`);
   }
@@ -93,7 +99,8 @@ export function formatSearchResults(results, label) {
       const pct =
         r.similarity != null ? ` [${Math.round(r.similarity * 100)}%]` : "";
       const prefix = timeStr ? `[${timeStr}] ` : "";
-      return `- ${prefix}${text}${pct}`;
+      const sectorPrefix = getSectorLabel(r);
+      return `- ${prefix}${sectorPrefix}${text}${pct}`;
     })
     .join("\n");
 }

@@ -3,10 +3,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 
-import { SupermemoryClient } from "./lib/supermemory-client.js";
 import { getContainerContext } from "./lib/container-tag.js";
 import { getFriendlyError } from "./lib/error-helper.js";
 import { formatSearchResults } from "./lib/format-context.js";
+import { guessMemorySector } from "./lib/memory-classifier.js";
+import { createMemoryClient } from "./lib/memory-client.js";
 
 const PERSONAL_ENTITY_CONTEXT = `Developer coding session. Focus on USER intent.
 
@@ -30,9 +31,9 @@ EXTRACT:
 - Decisions: "chose Drizzle over Prisma for performance"`;
 
 function getClient() {
-    return new SupermemoryClient({
-        apiKey: process.env.SUPERMEMORY_API_KEY,
-    })
+    return createMemoryClient({
+        cwd: process.cwd(),
+    });
 }
 
 function ctx() {
@@ -42,7 +43,7 @@ function ctx() {
 
 
 const server = new McpServer({
-    name: "supermemory",
+    name: "superbrain-memory",
     version: "1.0.0",
 });
 
@@ -109,6 +110,11 @@ server.registerTool(
                     timestamp: new Date().toISOString(),
                 },
                 entityContext: PERSONAL_ENTITY_CONTEXT,
+                sector: guessMemorySector(content, {
+                    scope: "personal",
+                    fallbackSector: "semantic",
+                }),
+                tags: ["scope:personal"],
             });
             return {
                 content: [
@@ -148,6 +154,11 @@ server.registerTool(
                     timestamp: new Date().toISOString(),
                 },
                 entityContext: REPO_ENTITY_CONTEXT,
+                sector: guessMemorySector(content, {
+                    scope: "repo",
+                    fallbackSector: "semantic",
+                }),
+                tags: ["scope:repo", "shared:project-knowledge"],
             });
             return {
                 content: [

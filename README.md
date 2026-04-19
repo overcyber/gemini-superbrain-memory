@@ -1,9 +1,9 @@
-# Gemini-Supermemory
+# Gemini-SuperBrain-Memory
 
-![Gemini-Supermemory Logo](readme_logo.png)
+![Gemini-SuperBrain-Memory Logo](readme_logo.png)
 
-A [Gemini CLI](https://github.com/google-gemini/gemini-cli) extension that gives your AI **persistent memory across sessions** using [Supermemory](https://supermemory.ai).
-Your agent remembers what you worked on — across sessions, across projects.
+A [Gemini CLI](https://github.com/google-gemini/gemini-cli) extension that gives your AI **persistent memory across sessions** using **SuperBrain/OpenMemory**, with legacy `supermemory` support still available.
+Your agent remembers what you worked on across sessions and across projects.
 
 ## Features
 
@@ -12,15 +12,15 @@ Your agent remembers what you worked on — across sessions, across projects.
 - **Auto Capture** — Sessions saved automatically when they end
 - **Auto Load** — Past context injected when a new session starts
 - **Codebase Indexing** — Deep-scan a repo's architecture and save it to memory
-- **Project Config** — Per-repo settings and container tag overrides
+- **Project Config** — Per-repo backend settings and scope overrides
 
 ## Installation
 
 ```bash
-gemini extensions install https://github.com/Rishabjs03/gemini-supermemory
+gemini extensions install https://github.com/overcyber/gemini-superbrain-memory
 ```
 
-Set your API key when prompted (get one at [app.supermemory.ai](https://app.supermemory.ai)).
+Set the API key for your configured memory backend when prompted.
 
 ## How It Works
 
@@ -37,13 +37,13 @@ Plus **two lifecycle hooks** that run behind the scenes:
 | Hook | Trigger | What it does |
 | --- | --- | --- |
 | **SessionStart** | Session begins | Fetches your past memories and injects them as context |
-| **SessionEnd** | Session ends | Saves a summary of the session to Supermemory |
+| **SessionEnd** | Session ends | Saves a summary of the session to the configured memory backend |
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `/index` | Index codebase architecture and patterns into Supermemory |
+| `/index` | Index codebase architecture and patterns into the configured memory backend |
 
 ## Configuration
 
@@ -51,21 +51,25 @@ Plus **two lifecycle hooks** that run behind the scenes:
 
 To update it:
 ```bash
-gemini extensions config gemini-supermemory
+gemini extensions config gemini-superbrain-memory
 ```
 
 Or set via environment variable:
 ```bash
-export SUPERMEMORY_API_KEY="sm_..."
+export MEMORY_PROVIDER="superbrain"
+export SUPERBRAIN_API_URL="http://localhost:8082/api/v1"
+export SUPERBRAIN_API_KEY="dev-key-123"
 ```
 
 ---
 
-**Project Config** — Create `.gemini/.supermemory/config.json` in your repo root:
+**Project Config** — Create `.gemini/.supermemory/config.json` in your repo root. The `.supermemory` path is kept for backward compatibility:
 
 ```json
 {
-  "apiKey": "sm_...",
+  "provider": "superbrain",
+  "apiUrl": "http://localhost:8082/api/v1",
+  "apiKey": "dev-key-123",
   "personalContainerTag": "my-personal-tag",
   "repoContainerTag": "my-team-project"
 }
@@ -73,6 +77,8 @@ export SUPERMEMORY_API_KEY="sm_..."
 
 | Option | Description |
 | --- | --- |
+| `provider` | `superbrain` or `supermemory` |
+| `apiUrl` | Project-specific backend URL |
 | `apiKey` | Project-specific API key |
 | `personalContainerTag` | Override personal memory container |
 | `repoContainerTag` | Override team memory container |
@@ -93,7 +99,7 @@ export SUPERMEMORY_API_KEY="sm_..."
 ## Architecture
 
 ```
-gemini-supermemory/
+gemini-superbrain-memory/
 ├── gemini-extension.json    ← Extension manifest
 ├── GEMINI.md                ← Context instructions for Gemini
 ├── hooks/
@@ -106,7 +112,10 @@ gemini-supermemory/
     │   ├── session-start.js  ← Auto-load memories
     │   └── session-end.js    ← Auto-save sessions
     └── lib/
-        ├── supermemory-client.js  ← Supermemory SDK wrapper
+        ├── superbrain-client.js   ← SuperBrain/OpenMemory client
+        ├── memory-client.js       ← Provider factory
+        ├── memory-classifier.js   ← Sector guessing for saved memories
+        ├── supermemory-client.js  ← Legacy Supermemory SDK wrapper
         ├── container-tag.js       ← Container tag generation
         ├── config.js              ← Global config loader
         ├── project-config.js      ← Per-repo config loader
@@ -120,8 +129,8 @@ gemini-supermemory/
 
 ```bash
 # Clone and install
-git clone https://github.com/Rishabjs03/gemini-supermemory.git
-cd gemini-supermemory
+git clone https://github.com/overcyber/gemini-superbrain-memory.git
+cd gemini-superbrain-memory
 npm install
 
 # Link for local development

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * SessionStart hook — auto-loads memories from Supermemory and injects them
+ * SessionStart hook — auto-loads memories from the configured backend and injects them
  * into the Gemini CLI context. Runs automatically when a session begins.
  *
  * Reads: stdin JSON (session metadata from Gemini CLI)
@@ -9,13 +9,13 @@
  * Env: SUPERMEMORY_API_KEY, GEMINI_CWD, GEMINI_SESSION_ID
  */
 
-import { SupermemoryClient } from "../lib/supermemory-client.js";
 import { getContainerContext } from "../lib/container-tag.js";
 import {
   formatProfileContext,
   combineContextSections,
 } from "../lib/format-context.js";
 import { getFriendlyError, isBenignError } from "../lib/error-helper.js";
+import { createMemoryClient } from "../lib/memory-client.js";
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -42,20 +42,14 @@ async function main() {
   try {
     await readStdin();
 
-    const apiKey = process.env.SUPERMEMORY_API_KEY;
-    if (!apiKey) {
-      output({});
-      return;
-    }
-
     const cwd = process.env.GEMINI_CWD || process.cwd();
     const { personalTag, repoTag, projectName } = getContainerContext(cwd);
 
-    const client = new SupermemoryClient({ apiKey });
+    const client = createMemoryClient({ cwd });
 
     const handleError = (label) => (err) => {
       if (isBenignError(err)) return null;
-      console.error(`Supermemory: ${label} — ${getFriendlyError(err)}`);
+      console.error(`Memory backend: ${label} — ${getFriendlyError(err)}`);
       return null;
     };
 
@@ -82,7 +76,7 @@ async function main() {
       output({});
     }
   } catch (err) {
-    console.error(`Supermemory: ${getFriendlyError(err)}`);
+    console.error(`Memory backend: ${getFriendlyError(err)}`);
     output({});
   }
 }

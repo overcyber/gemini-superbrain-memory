@@ -40,17 +40,27 @@ export class SupermemoryClient {
         apiKey,
         containerTag,
         apiUrl
-    } = {}) {
-        const config = loadConfig({
-            ...process.env,
-            ...(apiKey !== undefined ? { SUPERMEMORY_API_KEY: apiKey } : {}),
-            ...(containerTag !== undefined ? { SUPERMEMORY_CONTAINER_TAG: containerTag } : {}),
-            ...(apiUrl !== undefined ? { SUPERMEMORY_API_URL: apiUrl } : {}),
-        });
+    } = {}, cwd = process.cwd()) {
+        if (
+            apiKey === undefined ||
+            containerTag === undefined ||
+            apiUrl === undefined
+        ) {
+            const config = loadConfig(
+                {
+                    ...process.env,
+                    ...(apiKey !== undefined ? { SUPERMEMORY_API_KEY: apiKey } : {}),
+                    ...(containerTag !== undefined ? { SUPERMEMORY_CONTAINER_TAG: containerTag } : {}),
+                    ...(apiUrl !== undefined ? { SUPERMEMORY_API_URL: apiUrl } : {}),
+                },
+                cwd,
+                "supermemory",
+            );
 
-        apiKey = config.apiKey;
-        containerTag = config.containerTag;
-        apiUrl = config.apiUrl;
+            apiKey = apiKey ?? config.apiKey;
+            containerTag = containerTag ?? config.containerTag;
+            apiUrl = apiUrl ?? config.apiUrl;
+        }
 
         const keyCheck = ValidateApiKey(apiKey);
         if(!keyCheck.valid){

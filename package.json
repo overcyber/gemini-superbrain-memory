@@ -1,7 +1,7 @@
 {
-  "name": "gemini-supermemory",
+  "name": "gemini-superbrain-memory",
   "version": "1.0.0",
-  "description": "Persistent memory for Gemini CLI using Supermemory",
+  "description": "Persistent memory for Gemini CLI using SuperBrain/OpenMemory",
   "type": "module",
   "scripts": {
     "build": "node build.js"

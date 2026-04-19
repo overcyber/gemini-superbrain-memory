@@ -1,6 +1,7 @@
 /**
  * Per-project configuration, loaded from .gemini/.supermemory/config.json
- * Allows project-specific API keys, container tag overrides, etc.
+ * Allows project-specific backend/provider settings, API keys and scope
+ * overrides without changing the global Gemini extension install.
  */
 
 import fs from "node:fs";
@@ -42,15 +43,32 @@ export function loadProjectConfig(cwd = process.cwd()) {
   }
 }
 
-export function getProjectApiKey(cwd = process.cwd()) {
+function readOptionalString(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+export function getProjectMemoryConfig(cwd = process.cwd()) {
   const config = loadProjectConfig(cwd);
-  return config?.apiKey || null;
+
+  return {
+    provider: readOptionalString(config?.provider),
+    apiKey: readOptionalString(config?.apiKey),
+    apiUrl: readOptionalString(config?.apiUrl),
+    personalContainerTag: readOptionalString(config?.personalContainerTag),
+    repoContainerTag: readOptionalString(config?.repoContainerTag),
+  };
+}
+
+export function getProjectApiKey(cwd = process.cwd()) {
+  return getProjectMemoryConfig(cwd).apiKey;
 }
 
 export function getProjectContainerOverrides(cwd = process.cwd()) {
-  const config = loadProjectConfig(cwd);
+  const config = getProjectMemoryConfig(cwd);
   return {
-    personalContainerTag: config?.personalContainerTag || null,
-    repoContainerTag: config?.repoContainerTag || null,
+    personalContainerTag: config.personalContainerTag,
+    repoContainerTag: config.repoContainerTag,
   };
 }

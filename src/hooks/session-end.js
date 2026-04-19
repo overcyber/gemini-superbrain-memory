@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * SessionEnd hook — auto-saves a session summary to Supermemory
+ * SessionEnd hook — auto-saves a session summary to the configured memory backend
  * when the Gemini CLI session ends.
  *
  * Reads: stdin JSON (session metadata from Gemini CLI)
@@ -9,9 +9,9 @@
  * Env: SUPERMEMORY_API_KEY, GEMINI_CWD, GEMINI_SESSION_ID
  */
 
-import { SupermemoryClient } from "../lib/supermemory-client.js";
 import { getContainerContext } from "../lib/container-tag.js";
 import { getFriendlyError } from "../lib/error-helper.js";
+import { createMemoryClient } from "../lib/memory-client.js";
 
 const PERSONAL_ENTITY_CONTEXT = `Developer coding session. Focus on USER intent.
 
@@ -50,12 +50,6 @@ async function main() {
   try {
     const input = await readStdin();
 
-    const apiKey = process.env.SUPERMEMORY_API_KEY;
-    if (!apiKey) {
-      output({});
-      return;
-    }
-
     const sessionId = process.env.GEMINI_SESSION_ID || input.session_id;
     if (!sessionId) {
       output({});
@@ -85,7 +79,23 @@ async function main() {
 
     const content = parts.join("\n");
 
-    const client = new SupermemoryClient({ apiKey });
+    const client = createMemoryClient({ cwd });
+    const sessionTag = `session:${sessionId}`;
+
+    if (typeof client.getRecentMemories === "function") {
+      const existing = await client.getRecentMemories({
+        containerTag: personalTag,
+        limit: 1,
+        sector: "episodic",
+        tags: [sessionTag],
+      });
+
+      if (existing?.results?.length) {
+        console.error(`Memory backend: Session ${sessionId} already saved`);
+        output({});
+        return;
+      }
+    }
 
     await client.addMemory(content, {
       containerTag: personalTag,
@@ -97,12 +107,14 @@ async function main() {
       },
       customId: `session_${sessionId}`,
       entityContext: PERSONAL_ENTITY_CONTEXT,
+      sector: "episodic",
+      tags: [sessionTag, "scope:personal", "kind:session-summary"],
     });
 
-    console.error(`Supermemory: Session saved for ${projectName}`);
+    console.error(`Memory backend: Session saved for ${projectName}`);
     output({});
   } catch (err) {
-    console.error(`Supermemory: ${getFriendlyError(err)}`);
+    console.error(`Memory backend: ${getFriendlyError(err)}`);
     output({});
   }
 }

@@ -7,21 +7,28 @@
 export function getFriendlyError(err) {
     const status = err && err.status;
     if (status === 400) {
-        return 'Bad request \u2014 your API key or request format may be invalid. Check your key at https://console.supermemory.ai';
+        return 'Bad request — verify the configured memory backend settings, headers, and request payload.';
     }
     if (status === 401) {
-        return 'Authentication failed \u2014 your API key may be expired or revoked. Re-authenticate with the supermemory login command or check https://console.supermemory.ai';
+        return 'Authentication failed — verify the configured memory backend API key.';
     }
     if (status === 403) {
-        return 'Permission denied \u2014 this feature may require a different Supermemory plan. Check https://supermemory.ai/pricing';
+        return 'Permission denied — the configured memory backend rejected this operation.';
+    }
+    if (status === 404) {
+        return 'No memories were found for this scope yet.';
     }
     if (status === 429) {
-        return 'Rate limited \u2014 too many requests. Will retry next session.';
+        return 'Rate limited — too many requests. Will retry next session.';
     }
     if (typeof status === 'number' && status >= 500) {
-        return 'Supermemory service is temporarily unavailable. Will retry next session.';
+        return 'The memory backend is temporarily unavailable. Will retry next session.';
     }
-    return (err && err.message) || 'Unknown error';
+    const message = (err && err.message) || '';
+    if (/fetch failed|ECONNREFUSED|ENOTFOUND|network/i.test(message)) {
+        return 'Memory backend is unreachable — check the configured base URL and whether the service is running.';
+    }
+    return message || 'Unknown error';
 }
 
 /**

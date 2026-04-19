@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "name": "supermemory-context-loader",
+            "name": "superbrain-memory-context-loader",
             "type": "command",
             "command": "node ${extensionPath}${/}dist${/}hooks${/}session-start.js",
             "timeout": 15000
@@ -16,7 +16,7 @@
       {
         "hooks": [
           {
-            "name": "supermemory-session-saver",
+            "name": "superbrain-memory-session-saver",
             "type": "command",
             "command": "node ${extensionPath}${/}dist${/}hooks${/}session-end.js",
             "timeout": 15000
