@@ -66,9 +66,9 @@ export function loadConfig(env = process.env, cwd = process.cwd(), explicitProvi
 
   const apiKey = validateRequiredBackendToken(
     "SuperBrain API key",
-    projectConfig.apiKey ??
-      readOptionalString(env.SUPERBRAIN_API_KEY) ??
+    readOptionalString(env.SUPERBRAIN_API_KEY) ??
       readOptionalString(env.SUPERMEMORY_API_KEY) ??
+      projectConfig.apiKey ??
       "dev-key-123", // Chave padrão para o teste do usuário
   );
   const apiUrl =

@@ -2,7 +2,7 @@
 
 ![Gemini-SuperBrain-Memory Logo](readme_logo.png)
 
-A [Gemini CLI](https://github.com/google-gemini/gemini-cli) extension that gives your AI **persistent memory across sessions** using **SuperBrain/OpenMemory**, with legacy `supermemory` support still available.
+A [Gemini CLI](https://github.com/google-gemini/gemini-cli) extension that gives your AI **persistent memory across sessions** using **SuperBrain/OpenMemory**.
 Your agent remembers what you worked on across sessions and across projects.
 
 ## Features
@@ -63,7 +63,7 @@ export SUPERBRAIN_API_KEY="dev-key-123"
 
 ---
 
-**Project Config** — Create `.gemini/.supermemory/config.json` in your repo root. The `.supermemory` path is kept for backward compatibility:
+**Project Config** — Create `.gemini/.supermemory/config.local.json` in your repo root and set `GEMINI_SUPERMEMORY_ALLOW_LOCAL_PROJECT_CONFIG=true` to enable it:
 
 ```json
 {
@@ -77,7 +77,7 @@ export SUPERBRAIN_API_KEY="dev-key-123"
 
 | Option | Description |
 | --- | --- |
-| `provider` | `superbrain` or `supermemory` |
+| `provider` | `superbrain` |
 | `apiUrl` | Project-specific backend URL |
 | `apiKey` | Project-specific API key |
 | `personalContainerTag` | Override personal memory container |
@@ -115,7 +115,6 @@ gemini-superbrain-memory/
         ├── superbrain-client.js   ← SuperBrain/OpenMemory client
         ├── memory-client.js       ← Provider factory
         ├── memory-classifier.js   ← Sector guessing for saved memories
-        ├── supermemory-client.js  ← Legacy Supermemory SDK wrapper
         ├── container-tag.js       ← Container tag generation
         ├── config.js              ← Global config loader
         ├── project-config.js      ← Per-repo config loader
@@ -140,47 +139,3 @@ gemini extensions link .
 ## License
 
 MIT
-
-## Uso Prático (Local-First com SuperBrain)
-
-Para utilizar a extensão com o seu backend local do **SuperBrain/OpenMemory**, siga os passos abaixo:
-
-### 1. Configuração de Variáveis de Ambiente
-Habilite o carregamento da configuração local no seu shell ou arquivo `.env`:
-```bash
-export GEMINI_SUPERMEMORY_ALLOW_LOCAL_PROJECT_CONFIG=true
-```
-
-### 2. Arquivo de Configuração Local
-Crie o arquivo `.gemini/.supermemory/config.local.json` na raiz do seu repositório:
-```json
-{
-  "provider": "superbrain",
-  "apiKey": "test-key-123",
-  "apiUrl": "http://localhost:8082/api/v1"
-}
-```
-
-### 3. Exemplos de Uso MCP
-
-Você pode interagir diretamente com a memória durante o chat:
-
-*   **Salvar Preferência Pessoal**:
-    > "Lembre que eu prefiro usar tabs em vez de espaços para indentação neste projeto."
-    *   *Ação interna: Chama `add_memory`.*
-
-*   **Salvar Decisão de Projeto**:
-    > "Salve no conhecimento do projeto que estamos utilizando o padrão MCP para extensões."
-    *   *Ação interna: Chama `save_project_memory`.*
-
-*   **Consultar Memória**:
-    > "O que discutimos sobre a estrutura de diretórios na última sessão?"
-    *   *Ação interna: Chama `search_memory`.*
-
-*   **Indexação Automática**:
-    > "/index"
-    *   *Ação interna: Escaneia o código e salva os padrões de arquitetura.*
-
-### 4. Ciclo de Vida Automático
-Não é necessário salvar manualmente no fim de cada chat. O hook `SessionEnd` captura o sumário da sessão e o salva para que o `SessionStart` o injete automaticamente no início da sua próxima interação.
-
