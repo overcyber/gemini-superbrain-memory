@@ -14,8 +14,11 @@ import {
   formatProfileContext,
   combineContextSections,
 } from "../lib/format-context.js";
-import { getFriendlyError, isBenignError } from "../lib/error-helper.js";
 import { createMemoryClient } from "../lib/memory-client.js";
+import { createLogger } from "../lib/logger.js";
+import { logError, getFriendlyErrorMessage, isBenignError } from "../lib/errors.js";
+
+const logger = createLogger({ component: "SessionStartHook" });
 
 function readStdin() {
   return new Promise((resolve) => {
@@ -45,11 +48,13 @@ async function main() {
     const cwd = process.env.GEMINI_CWD || process.cwd();
     const { personalTag, repoTag, projectName } = getContainerContext(cwd);
 
+    logger.info({ cwd, projectName }, "Session start hook triggered");
+
     const client = createMemoryClient({ cwd });
 
     const handleError = (label) => (err) => {
+      logError(err, { component: "SessionStartHook", label });
       if (isBenignError(err)) return null;
-      console.error(`Memory backend: ${label} — ${getFriendlyError(err)}`);
       return null;
     };
 
@@ -71,12 +76,14 @@ async function main() {
     ]);
 
     if (combined) {
+      logger.debug({ hasPersonal: !!personalContext, hasRepo: !!repoContext }, "Context loaded");
       output({ systemMessage: combined });
     } else {
+      logger.debug({}, "No context loaded");
       output({});
     }
   } catch (err) {
-    console.error(`Memory backend: ${getFriendlyError(err)}`);
+    logError(err, { component: "SessionStartHook" });
     output({});
   }
 }

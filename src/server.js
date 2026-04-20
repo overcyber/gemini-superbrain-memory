@@ -4,10 +4,14 @@ import { z } from "zod";
 
 
 import { getContainerContext } from "./lib/container-tag.js";
-import { getFriendlyError } from "./lib/error-helper.js";
 import { formatSearchResults } from "./lib/format-context.js";
 import { guessMemorySector } from "./lib/memory-classifier.js";
 import { createMemoryClient } from "./lib/memory-client.js";
+import { createLogger } from "./lib/logger.js";
+import { searchMemorySchema, addMemorySchema, saveProjectMemorySchema } from "./lib/schemas.js";
+import { logError, getFriendlyErrorMessage, isBenignError } from "./lib/errors.js";
+
+const logger = createLogger({ component: "MCPServer" });
 
 const PERSONAL_ENTITY_CONTEXT = `Developer coding session. Focus on USER intent.
 
@@ -42,6 +46,7 @@ function ctx() {
 
 
 
+
 const server = new McpServer({
     name: "superbrain-memory",
     version: "1.0.0",
@@ -61,28 +66,38 @@ server.registerTool(
         },
     },
     async ({ query, scope }) => {
+        const toolLogger = logger.child({ tool: "search_memory", scope });
+        toolLogger.debug({ queryLength: query?.length }, "Tool called");
+
         try {
+            // Validar entrada
+            const validated = await searchMemorySchema.parseAsync({ query, scope });
+
             const client = getClient();
             const { personalTag, repoTag, projectName } = ctx();
             let output = `Project: ${projectName}\n\n`;
+
             if (scope === "both" || scope === "user") {
-                const personal = await client.search(query, {
+                const personal = await client.search(validated.query, {
                     containerTag: personalTag,
                     limit: 5,
                 });
                 output += `### Personal Memories\n${formatSearchResults(personal.results, "personal")}\n\n`;
             }
             if (scope === "both" || scope === "repo") {
-                const repo = await client.search(query, {
+                const repo = await client.search(validated.query, {
                     containerTag: repoTag,
                     limit: 5,
                 });
                 output += `### Project Memories\n${formatSearchResults(repo.results, "project")}\n`;
             }
+
+            toolLogger.info({}, "Search completed successfully");
             return { content: [{ type: "text", text: output }] };
         } catch (err) {
+            logError(err, { tool: "search_memory", query: query?.substring(0, 50) });
             return {
-                content: [{ type: "text", text: `Error: ${getFriendlyError(err)}` }],
+                content: [{ type: "text", text: `Error: ${getFriendlyErrorMessage(err)}` }],
                 isError: true,
             };
         }
@@ -99,10 +114,16 @@ server.registerTool(
         },
     },
     async ({ content }) => {
+        const toolLogger = logger.child({ tool: "add_memory" });
+        toolLogger.debug({ contentLength: content?.length }, "Tool called");
+
         try {
+            // Validar entrada
+            const validated = await addMemorySchema.parseAsync({ content });
+
             const client = getClient();
             const { personalTag, projectName } = ctx();
-            const result = await client.addMemory(content, {
+            const result = await client.addMemory(validated.content, {
                 containerTag: personalTag,
                 metadata: {
                     type: "manual",
@@ -110,12 +131,14 @@ server.registerTool(
                     timestamp: new Date().toISOString(),
                 },
                 entityContext: PERSONAL_ENTITY_CONTEXT,
-                sector: guessMemorySector(content, {
+                sector: guessMemorySector(validated.content, {
                     scope: "personal",
                     fallbackSector: "semantic",
                 }),
                 tags: ["scope:personal"],
             });
+
+            toolLogger.info({ memoryId: result.id }, "Memory saved successfully");
             return {
                 content: [
                     {
@@ -125,8 +148,9 @@ server.registerTool(
                 ],
             };
         } catch (err) {
+            logError(err, { tool: "add_memory" });
             return {
-                content: [{ type: "text", text: `Error: ${getFriendlyError(err)}` }],
+                content: [{ type: "text", text: `Error: ${getFriendlyErrorMessage(err)}` }],
                 isError: true,
             };
         }
@@ -143,10 +167,16 @@ server.registerTool(
         },
     },
     async ({ content }) => {
+        const toolLogger = logger.child({ tool: "save_project_memory" });
+        toolLogger.debug({ contentLength: content?.length }, "Tool called");
+
         try {
+            // Validar entrada
+            const validated = await saveProjectMemorySchema.parseAsync({ content });
+
             const client = getClient();
             const { repoTag, projectName } = ctx();
-            const result = await client.addMemory(content, {
+            const result = await client.addMemory(validated.content, {
                 containerTag: repoTag,
                 metadata: {
                     type: "project-knowledge",
@@ -154,12 +184,14 @@ server.registerTool(
                     timestamp: new Date().toISOString(),
                 },
                 entityContext: REPO_ENTITY_CONTEXT,
-                sector: guessMemorySector(content, {
+                sector: guessMemorySector(validated.content, {
                     scope: "repo",
                     fallbackSector: "semantic",
                 }),
                 tags: ["scope:repo", "shared:project-knowledge"],
             });
+
+            toolLogger.info({ memoryId: result.id }, "Project memory saved successfully");
             return {
                 content: [
                     {
@@ -169,13 +201,15 @@ server.registerTool(
                 ],
             };
         } catch (err) {
+            logError(err, { tool: "save_project_memory" });
             return {
-                content: [{ type: "text", text: `Error: ${getFriendlyError(err)}` }],
+                content: [{ type: "text", text: `Error: ${getFriendlyErrorMessage(err)}` }],
                 isError: true,
             };
         }
     }
 );
 
+logger.info({}, "Starting MCP server");
 const transport = new StdioServerTransport();
 await server.connect(transport);

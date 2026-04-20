@@ -2,6 +2,9 @@ import crypto from "node:crypto";
 import { DEFAULT_SEARCH_LIMIT, loadConfig } from "./config.js";
 import { getProjectBasePath } from "./container-tag.js";
 import { SanitizeContent, ValidateContentLength } from "./validate.js";
+import { fetchWithRetry } from "./retry.js";
+import { createLogger, withContext } from "./logger.js";
+import { wrapError, ApiError, NetworkError } from "./errors.js";
 
 const GEMINI_SKILL_NAMESPACE = "gemini-cli:skill:gemini-superbrain-memory";
 const PROJECT_FINGERPRINT_LENGTH = 16;
@@ -122,9 +125,7 @@ function createHttpError(status, bodyText, fallbackMessage) {
     }
   }
 
-  const error = new Error(message);
-  error.status = status;
-  return error;
+  return wrapError({ message, status }, fallbackMessage);
 }
 
 export class SuperbrainClient {
@@ -148,6 +149,7 @@ export class SuperbrainClient {
     this.cwd = cwd;
     this.basePath = getProjectBasePath(cwd);
     this.projectFingerprint = toProjectFingerprint(this.basePath);
+    this.logger = createLogger({ component: "SuperbrainClient" });
   }
 
   getScopeTag(containerTag) {
@@ -183,27 +185,48 @@ export class SuperbrainClient {
       }
     }
 
-    const response = await fetch(url, {
+    const requestLogger = withContext(this.logger, {
+      operation: "request",
       method,
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": this.apiKey,
-        "X-User-ID": userId,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      path,
     });
 
-    if (!response.ok) {
-      const bodyText = await response.text();
-      throw createHttpError(
-        response.status,
-        bodyText,
-        `SuperBrain API request failed with ${response.status}`,
-      );
-    }
+    requestLogger.debug({ url: url.href, method, hasBody: !!body }, "Making API request");
 
-    const text = await response.text();
-    return text ? JSON.parse(text) : {};
+    try {
+      const response = await fetchWithRetry(
+        url,
+        {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": this.apiKey,
+            "X-User-ID": userId,
+          },
+          body: body ? JSON.stringify(body) : undefined,
+        },
+        { maxRetries: 3, baseDelay: 1000 },
+      );
+
+      if (!response.ok) {
+        const bodyText = await response.text();
+        const error = createHttpError(
+          response.status,
+          bodyText,
+          `SuperBrain API request failed with ${response.status}`,
+        );
+        requestLogger.warn({ status: response.status }, "API request failed");
+        throw error;
+      }
+
+      const text = await response.text();
+      const result = text ? JSON.parse(text) : {};
+      requestLogger.debug({ status: response.status }, "API request succeeded");
+      return result;
+    } catch (err) {
+      requestLogger.error({ error: err.message }, "API request error");
+      throw err;
+    }
   }
 
   async addMemory(
@@ -214,6 +237,7 @@ export class SuperbrainClient {
     const contentCheck = ValidateContentLength(sanitizedContent);
 
     if (!contentCheck.valid) {
+      this.logger.warn({ reason: contentCheck.reason }, "Invalid memory content");
       throw new Error(`Invalid memory content: ${contentCheck.reason}`);
     }
 
@@ -242,12 +266,19 @@ export class SuperbrainClient {
       payload.sector = sector;
     }
 
+    this.logger.debug(
+      { sector, customId, containerTag: scope.scopeTag },
+      "Adding memory",
+    );
+
     const response = await this.request(sector ? "memory" : "memory/auto", {
       method: "POST",
       userId: scope.userId,
       body: payload,
     });
     const data = response?.data ?? {};
+
+    this.logger.info({ memoryId: data.memoryId, sector: data.sector }, "Memory saved");
 
     return {
       id: data.memoryId ?? customId ?? null,
@@ -272,8 +303,14 @@ export class SuperbrainClient {
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
 
     if (!normalizedQuery) {
+      this.logger.warn({}, "Empty search query");
       throw new Error("Search query must be a non-empty string");
     }
+
+    this.logger.debug(
+      { queryLength: normalizedQuery.length, limit, sector },
+      "Searching memories",
+    );
 
     const response = await this.request(sector ? "search/sector" : "search", {
       method: "POST",
@@ -293,6 +330,8 @@ export class SuperbrainClient {
       ? response.data.results
       : [];
 
+    this.logger.debug({ resultCount: results.length }, "Search completed");
+
     return {
       results: dedupeBy(
         results.map(normalizeSearchResult).filter((item) => item.text),
@@ -309,6 +348,8 @@ export class SuperbrainClient {
       ...(sector ? { sector } : {}),
       ...(tags?.length ? { tags: normalizeTags(tags).join(",") } : {}),
     };
+
+    this.logger.debug({ limit, sector }, "Fetching recent memories");
 
     const response = await this.request("memory", {
       method: "GET",
@@ -339,6 +380,8 @@ export class SuperbrainClient {
   }
 
   async getProfile({ containerTag, query, threshold } = {}) {
+    this.logger.debug({ hasQuery: !!query }, "Building profile");
+
     const [recentResult, relevantResult] = await Promise.all([
       this.getRecentMemories({ containerTag, limit: 8 }),
       query
@@ -365,6 +408,11 @@ export class SuperbrainClient {
       )
       .map((item) => this.formatProfileFact(item))
       .slice(0, 5);
+
+    this.logger.debug(
+      { staticCount: staticFacts.length, dynamicCount: dynamicFacts.length },
+      "Profile built",
+    );
 
     return {
       profile: {

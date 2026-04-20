@@ -10,8 +10,11 @@
  */
 
 import { getContainerContext } from "../lib/container-tag.js";
-import { getFriendlyError } from "../lib/error-helper.js";
 import { createMemoryClient } from "../lib/memory-client.js";
+import { createLogger } from "../lib/logger.js";
+import { logError, getFriendlyErrorMessage } from "../lib/errors.js";
+
+const logger = createLogger({ component: "SessionEndHook" });
 
 const PERSONAL_ENTITY_CONTEXT = `Developer coding session. Focus on USER intent.
 
@@ -52,12 +55,15 @@ async function main() {
 
     const sessionId = process.env.GEMINI_SESSION_ID || input.session_id;
     if (!sessionId) {
+      logger.debug({}, "No session ID, skipping");
       output({});
       return;
     }
 
     const cwd = process.env.GEMINI_CWD || process.cwd();
     const { personalTag, projectName } = getContainerContext(cwd);
+
+    logger.info({ sessionId, projectName }, "Session end hook triggered");
 
     // Build a summary from whatever session data is available
     const parts = [];
@@ -91,6 +97,7 @@ async function main() {
       });
 
       if (existing?.results?.length) {
+        logger.debug({ sessionId }, "Session already saved, skipping");
         console.error(`Memory backend: Session ${sessionId} already saved`);
         output({});
         return;
@@ -111,10 +118,12 @@ async function main() {
       tags: [sessionTag, "scope:personal", "kind:session-summary"],
     });
 
+    logger.info({ sessionId, projectName }, "Session saved successfully");
     console.error(`Memory backend: Session saved for ${projectName}`);
     output({});
   } catch (err) {
-    console.error(`Memory backend: ${getFriendlyError(err)}`);
+    logError(err, { component: "SessionEndHook" });
+    console.error(`Memory backend: ${getFriendlyErrorMessage(err)}`);
     output({});
   }
 }
